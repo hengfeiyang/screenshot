@@ -19,11 +19,11 @@ RETVAL=0
 PIDFILE=/var/run/screenShot.pid
 
 prog=screenShot
-exec=/usr/local/screenShot/screenShot
+exec=/usr/bin/screenShot
 lockfile=/var/lock/subsys/$prog
 
 port=9464
-options=" -port=$port"
+options=" --port=$port"
 
 start() {
   [ -x $exec ] || exit 5
