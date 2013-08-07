@@ -1,11 +1,11 @@
 #!/bin/bash
 #
-# screenShot        Startup script for screenShot.
+# screenshot        Startup script for screenshot.
 #
 # chkconfig: 345 12 88
 # description: ScreenShot is a screen shot http service.
 ### BEGIN INIT INFO
-# Provides: $screenShot
+# Provides: $screenshot
 # Required-Start: $local_fs
 # Required-Stop: $local_fs
 # Default-Start:  3 4 5
@@ -16,10 +16,10 @@
 . /etc/init.d/functions
 
 RETVAL=0
-PIDFILE=/var/run/screenShot.pid
+PIDFILE=/var/run/screenshot.pid
 
-prog=screenShot
-exec=/usr/bin/screenShot
+prog=screenshot
+exec=/usr/bin/screenshot
 lockfile=/var/lock/subsys/$prog
 
 port=9464
@@ -30,7 +30,7 @@ start() {
 
   umask 077
 
-        echo -n $"Starting screenShot: "
+        echo -n $"Starting screenshot: "
         daemon --pidfile="$PIDFILE" $exec --pidfile="$PIDFILE" --daemon=true $options 
         RETVAL=$?
         echo
@@ -38,7 +38,7 @@ start() {
         return $RETVAL
 }
 stop() {
-        echo -n $"Shutting down screenShot: "
+        echo -n $"Shutting down screenshot: "
         killproc -p "$PIDFILE" $exec
         RETVAL=$?
         echo
