@@ -1,0 +1,74 @@
+#!/bin/bash
+#
+# screenShot        Startup script for screenShot.
+#
+# chkconfig: 345 12 88
+# description: ScreenShot is a screen shot http service.
+### BEGIN INIT INFO
+# Provides: $screenShot
+# Required-Start: $local_fs
+# Required-Stop: $local_fs
+# Default-Start:  3 4 5
+# Default-Stop: 0 1 6
+### END INIT INFO
+
+# Source function library.
+. /etc/init.d/functions
+
+RETVAL=0
+PIDFILE=/var/run/screenShot.pid
+
+prog=screenShot
+exec=/usr/local/screenShot/screenShot
+lockfile=/var/lock/subsys/$prog
+
+port=9464
+options=" -port=$port"
+
+start() {
+  [ -x $exec ] || exit 5
+
+  umask 077
+
+        echo -n $"Starting screenShot: "
+        daemon --pidfile="$PIDFILE" $exec --pidfile="$PIDFILE" --daemon=true $options 
+        RETVAL=$?
+        echo
+        [ $RETVAL -eq 0 ] && touch $lockfile
+        return $RETVAL
+}
+stop() {
+        echo -n $"Shutting down screenShot: "
+        killproc -p "$PIDFILE" $exec
+        RETVAL=$?
+        echo
+        [ $RETVAL -eq 0 ] && rm -f $lockfile
+        return $RETVAL
+}
+rhstatus() {
+        status -p "$PIDFILE" -l $prog $exec
+}
+restart() {
+        stop
+        start
+}
+
+case "$1" in
+  start)
+        start
+        ;;
+  stop)
+        stop
+        ;;
+  restart)
+        restart
+        ;;
+  status)
+        rhstatus
+        ;;
+  *)
+        echo $"Usage: $0 {start|stop|restart|status}"
+        exit 3
+esac
+
+exit $?
