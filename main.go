@@ -1,16 +1,18 @@
 package main
 
 import (
-  "crypto/md5"
+	"crypto/md5"
 	"encoding/hex"
 	"errors"
 	"flag"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"strconv"
 	"syscall"
 )
@@ -22,8 +24,8 @@ const (
 	DEF_HEIGHT int  = 768
 	DEF_DEBUG  bool = false
 
-	PHANTOMJS string = "/usr/local/bin/phantomjs" // PhantomJS执行路径
-	SNAP_JS   string = "util/rasterize.js"        // 截图脚本路径
+	PHANTOMJS string = "/usr/bin/phantomjs" // PhantomJS执行路径
+	SNAP_JS   string = "util/rasterize.js"  // 截图脚本路径
 )
 
 type config struct {
@@ -38,13 +40,27 @@ var conf *config // 创建全局变量 conf
 
 func main() {
 	// 初始化配置
+	var pidfile string
+	var isDaemon bool
 	conf = new(config)
+	flag.StringVar(&pidfile, "pidfile", "", "pid file")
+	flag.BoolVar(&isDaemon, "daemon", false, "as a daemon service (default: false)")
 	flag.IntVar(&conf.port, "port", DEF_PORT, "TCP port number to listen on (default: "+strconv.Itoa(DEF_PORT)+")")
 	flag.IntVar(&conf.delay, "delay", DEF_DELAY, "Delay second before shot (default: "+strconv.Itoa(DEF_DELAY)+")")
 	flag.IntVar(&conf.width, "width", DEF_WIDTH, "Screen width (default: "+strconv.Itoa(DEF_WIDTH)+")")
 	flag.IntVar(&conf.height, "height", DEF_HEIGHT, "Screen height (default: "+strconv.Itoa(DEF_HEIGHT)+")")
 	flag.BoolVar(&conf.debug, "debug", DEF_DEBUG, "Open debug mode (default: false)")
 	flag.Parse()
+	//daemon
+	if isDaemon == true && len(pidfile) > 4 {
+		daemon(1, 1)
+		pid := os.Getpid()
+		err := ioutil.WriteFile(pidfile, []byte(strconv.Itoa(pid)), 0666)
+		if err != nil {
+			fmt.Println(err.Error())
+			os.Exit(1)
+		}
+	}
 	//为phantomJS配置环境变量
 	os.Setenv("LIBXCB_ALLOW_SLOPPY_LOCK", "1")
 	os.Setenv("DISPLAY", ":0")
@@ -183,4 +199,66 @@ func IsWritable(path string) bool {
 		return false
 	}
 	return false
+}
+
+// deamon
+func daemon(nochdir, noclose int) int {
+	var ret, ret2 uintptr
+	var err syscall.Errno
+
+	darwin := runtime.GOOS == "darwin"
+
+	// already a daemon
+	if syscall.Getppid() == 1 {
+		return 0
+	}
+
+	// fork off the parent process
+	ret, ret2, err = syscall.RawSyscall(syscall.SYS_FORK, 0, 0, 0)
+	if err != 0 {
+		return -1
+	}
+
+	// failure
+	if ret2 < 0 {
+		os.Exit(-1)
+	}
+
+	// handle exception for darwin
+	if darwin && ret2 == 1 {
+		ret = 0
+	}
+
+	// if we got a good PID, then we call exit the parent process.
+	if ret > 0 {
+		os.Exit(0)
+	}
+
+	/* Change the file mode mask */
+	_ = syscall.Umask(0)
+
+	// create a new SID for the child process
+	s_ret, s_errno := syscall.Setsid()
+	if s_errno != nil {
+		log.Printf("Error: syscall.Setsid errno: %d", s_errno)
+	}
+	if s_ret < 0 {
+		return -1
+	}
+
+	if nochdir == 0 {
+		os.Chdir("/")
+	}
+
+	if noclose == 0 {
+		f, e := os.OpenFile("/dev/null", os.O_RDWR, 0)
+		if e == nil {
+			fd := f.Fd()
+			syscall.Dup2(int(fd), int(os.Stdin.Fd()))
+			syscall.Dup2(int(fd), int(os.Stdout.Fd()))
+			syscall.Dup2(int(fd), int(os.Stderr.Fd()))
+		}
+	}
+
+	return 0
 }
